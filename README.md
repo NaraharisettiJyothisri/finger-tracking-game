@@ -21,6 +21,10 @@ An interactive browser-based game that uses hand tracking technology to control 
 
 To build an interactive game that allows users to control actions using finger movements and hand gestures.
 
+🔗 Live Demo
+https://finger-tracking-game.vercel.app/
+
+
 ## 👩‍💻 Author
 
 Jyothisri
