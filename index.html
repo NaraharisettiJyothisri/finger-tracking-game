@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pulse Runner - Finger Tracking Space Survival</title>
+  <meta name="description" content="Control your ship with your finger using advanced webcam tracking. Dodge obstacles, collect energy cores, and survive the pulse field!">
+  <!-- Google Fonts for premium futuristic cyberpunk aesthetic -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="style.css">
+  
+  <!-- MediaPipe Hands & Camera Utils loaded via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+</head>
+<body>
+  <!-- Ambient background glow particles -->
+  <div class="bg-glow"></div>
+
+  <!-- Primary Game Canvas -->
+  <canvas id="gameCanvas"></canvas>
+
+  <!-- Interactive HUD Overlay -->
+  <div id="hud" class="hud hidden">
+    <div class="hud-item score-container">
+      <span class="label">SCORE</span>
+      <span id="scoreVal" class="value text-glow-cyan">00000</span>
+    </div>
+    <div class="hud-item shield-container">
+      <span class="label">SHIELD</span>
+      <div class="shield-bar-outer">
+        <div id="shieldBarInner" class="shield-bar-inner"></div>
+      </div>
+    </div>
+    <div class="hud-item multiplier-container">
+      <span class="label">MULTIPLIER</span>
+      <span id="multVal" class="value text-glow-pink">1.0x</span>
+    </div>
+    <div class="hud-item level-container">
+      <span class="label">STAGE</span>
+      <span id="levelVal" class="value text-glow-orange">1</span>
+    </div>
+    <button id="hudPauseBtn" class="hud-btn" aria-label="Pause Game">
+      <svg viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+    </button>
+  </div>
+
+  <!-- Global UI Overlay Screen Container -->
+  <div id="uiOverlay" class="ui-overlay">
+    
+    <!-- Screen 1: Welcome/Start Menu -->
+    <div id="startScreen" class="overlay-card active glass">
+      <h1 class="logo-text">PULSE<br><span class="logo-sub">RUNNER</span></h1>
+      <p class="tagline">Control with the tip of your index finger</p>
+      
+      <div class="menu-buttons">
+        <button id="startGameBtn" class="btn btn-primary btn-glowing">START RUN</button>
+        <button id="openSettingsBtn" class="btn btn-secondary">SETTINGS</button>
+      </div>
+
+      <div class="how-to-play">
+        <h3>HOW TO RUN</h3>
+        <div class="steps-grid">
+          <div class="step-item">
+            <span class="step-num">1</span>
+            <p>Allow camera access when prompted.</p>
+          </div>
+          <div class="step-item">
+            <span class="step-num">2</span>
+            <p>Raise your index finger in view of the camera.</p>
+          </div>
+          <div class="step-item">
+            <span class="step-num">3</span>
+            <p>Dodge neon barriers & gather cyan energy cores.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="high-score-board">
+        <span>BEST RUN:</span>
+        <span id="bestScoreVal" class="text-glow-pink">00000</span>
+      </div>
+    </div>
+
+    <!-- Screen 2: Loading & Calibration Screen -->
+    <div id="loadingScreen" class="overlay-card hidden glass">
+      <div class="spinner-container">
+        <div class="cyber-spinner"></div>
+        <div class="spinner-core"></div>
+      </div>
+      <h2 id="loadingText" class="loading-text">BOOTING CAMERA...</h2>
+      <p class="sub-text">Please wait while the neural tracking system initializes</p>
+      <div class="progress-bar-container">
+        <div id="loadingProgress" class="progress-bar-fill" style="width: 0%;"></div>
+      </div>
+      <button id="cancelLoadingBtn" class="btn btn-text">CANCEL</button>
+    </div>
+
+    <!-- Screen 3: Settings Panel (Overlay) -->
+    <div id="settingsScreen" class="overlay-card hidden glass">
+      <h2 class="card-title text-glow-cyan">SYSTEM CONFIG</h2>
+      
+      <div class="settings-list">
+        <!-- Webcam feed settings -->
+        <div class="setting-item">
+          <div class="setting-info">
+            <span class="setting-label">Webcam Monitor</span>
+            <span class="setting-desc">Show your tracking feed on screen</span>
+          </div>
+          <div class="toggle-switch">
+            <input type="checkbox" id="webcamToggle" checked>
+            <label for="webcamToggle"></label>
+          </div>
+        </div>
+
+        <!-- Sensitivity setting -->
+        <div class="setting-item-vertical">
+          <div class="setting-info-horizontal">
+            <span class="setting-label">Tracking Sensitivity</span>
+            <span id="sensitivityVal" class="setting-value">High</span>
+          </div>
+          <input type="range" id="sensitivitySlider" min="1" max="100" value="50" class="slider">
+          <div class="slider-labels">
+            <span>Smooth (Lazy)</span>
+            <span>Responsive (Direct)</span>
+          </div>
+        </div>
+
+        <!-- Sound Settings -->
+        <div class="setting-item">
+          <div class="setting-info">
+            <span class="setting-label">Sfx Synthesizer</span>
+            <span class="setting-desc">Enable 8-bit dynamic audio nodes</span>
+          </div>
+          <div class="toggle-switch">
+            <input type="checkbox" id="soundToggle" checked>
+            <label for="soundToggle"></label>
+          </div>
+        </div>
+
+        <!-- Difficulty Settings -->
+        <div class="setting-item-vertical">
+          <span class="setting-label">System Difficulty</span>
+          <div class="difficulty-tabs">
+            <button class="diff-tab" data-diff="easy">NOVICE</button>
+            <button class="diff-tab active" data-diff="medium">OPERATIVE</button>
+            <button class="diff-tab" data-diff="hard">ELITE</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-actions">
+        <button id="fullscreenBtn" class="btn btn-secondary">TOGGLE FULLSCREEN</button>
+        <button id="closeSettingsBtn" class="btn btn-primary">SAVE CONFIG</button>
+      </div>
+    </div>
+
+    <!-- Screen 4: Pause Menu -->
+    <div id="pauseScreen" class="overlay-card hidden glass">
+      <h2 class="card-title text-glow-pink">PULSE SUSPENDED</h2>
+      <p class="sub-text">The system is currently paused</p>
+      
+      <div class="menu-buttons">
+        <button id="resumeGameBtn" class="btn btn-primary">RESUME RUN</button>
+        <button id="restartGameBtn" class="btn btn-secondary">RESTART</button>
+        <button id="pauseSettingsBtn" class="btn btn-secondary">SETTINGS</button>
+        <button id="quitGameBtn" class="btn btn-danger">ABANDON RUN</button>
+      </div>
+    </div>
+
+    <!-- Screen 5: Game Over Screen -->
+    <div id="gameOverScreen" class="overlay-card hidden glass">
+      <h2 class="card-title text-glow-red">CORE RUPTURED</h2>
+      <p class="sub-text">Your ship was consumed by the pulse field</p>
+      
+      <div class="stats-summary">
+        <div class="stat-box">
+          <span class="stat-label">FINAL SCORE</span>
+          <span id="finalScoreVal" class="stat-value text-glow-pink">00000</span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-label">SURVIVAL TIME</span>
+          <span id="finalTimeVal" class="stat-value text-glow-cyan">00:00</span>
+        </div>
+      </div>
+
+      <div id="newHighScoreAlert" class="high-score-alert hidden">
+        ★ NEW HIGH SCORE ACHIEVED ★
+      </div>
+
+      <div class="menu-buttons">
+        <button id="retryGameBtn" class="btn btn-primary btn-glowing">RE-INITIALIZE</button>
+        <button id="gameOverQuitBtn" class="btn btn-secondary">MAIN MENU</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Hand Detection Status Bar (Fades in when hand lost) -->
+  <div id="trackingLostBanner" class="tracking-lost-banner hidden">
+    <div class="pulse-warning-icon">⚠️</div>
+    <div class="warning-text">
+      <h2>TRACKING INTERRUPTED</h2>
+      <p>Position index finger clearly within camera view</p>
+    </div>
+  </div>
+
+  <!-- Webcam Floating Monitor Feed (HUD Element) -->
+  <div id="webcamMonitor" class="webcam-monitor active dragging-prevented">
+    <div class="monitor-header">
+      <span class="monitor-title">FEED: CAMERA_01</span>
+      <div class="monitor-status">
+        <span class="status-dot green"></span>
+        <span class="status-text">ACTIVE</span>
+      </div>
+    </div>
+    <div class="monitor-body">
+      <!-- Hidden raw video element used for tracking -->
+      <video id="webcamVideo" autoplay playsinline muted style="display: none;"></video>
+      <!-- Visual tracking feedback canvas overlay -->
+      <canvas id="trackerCanvas"></canvas>
+    </div>
+  </div>
+
+  <!-- Main JavaScript File -->
+  <script type="module" src="script.js"></script>
+</body>
+</html>

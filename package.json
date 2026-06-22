@@ -1,0 +1,12 @@
+{
+  "name": "finger-tracking-game",
+  "version": "1.0.0",
+  "description": "A high-performance finger-tracking game using MediaPipe Hands, Canvas, and Web Audio API",
+  "main": "script.js",
+  "scripts": {
+    "start": "npx -y sirv-cli --dev --port 3000 --cors --host 127.0.0.1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
